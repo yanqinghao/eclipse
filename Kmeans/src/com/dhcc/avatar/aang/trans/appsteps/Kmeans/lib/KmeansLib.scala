@@ -138,11 +138,29 @@ class KmeansLib(@transient val sc: SparkContext, val initMode: String, val numCl
     val rddArr = preData.rdd.map(toArr(_, size))
     val parsedData = rddArr.map(Vectors.dense(_))
     val index = clusters.predict(parsedData)
-    val schemaString = "cluster"
-    val schema = StructType(schemaString.split(" ").map(a => StructField(a, IntegerType, true)))
-    val rowRDD = index.map(Row(_))
-    val predict = sqlContext.createDataFrame(rowRDD, schema)
-    predict
+    val predictZip = rddArr.zip(index)
+    val rdd = predictZip.map(TpToRow(_))
+    val schemaOutput = getDFOutputSchema(size)
+    val predictZipDF = sqlContext.createDataFrame(rdd, schemaOutput)
+    predictZipDF
+  }
+
+  private def TpToRow(input: (Array[Double], Int)) = {
+    var dataSeq = Seq[Any]()
+    for (i <- 0 to input._1.length - 1) {
+      dataSeq = dataSeq.:+(input._1(i))
+    }
+    dataSeq = dataSeq.:+(input._2.toDouble)
+    Row.fromSeq(dataSeq)
+  }
+
+  private def getDFOutputSchema(col: Int): StructType = {
+    val fieldArray = new Array[StructField](col + 1)
+    for (i <- 0 to col - 1) {
+      fieldArray(i) = StructField("v" + i.toString(), DoubleType, true);
+    }
+    fieldArray(col) = StructField("label", DoubleType, true);
+    new StructType(fieldArray)
   }
 
 }
