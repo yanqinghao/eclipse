@@ -21,7 +21,7 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.DataFrame
 import org.dmg.pmml.True
 
-class SVM(@transient val sc: SparkContext, val numIterations: Int) extends Serializable {
+class SVM(@transient val sc: SparkContext) extends Serializable {
 
   val sqlContext = new SQLContext(sc)
 
@@ -51,7 +51,7 @@ class SVM(@transient val sc: SparkContext, val numIterations: Int) extends Seria
     data
   }
 
-  def svmTrain(trainData: DataFrame, path: String): SVMModel = {
+  def svmTrain(trainData: DataFrame, path: String, numIterations: Int): SVMModel = {
     val col = trainData.columns
     val size = col.length
     val rddArr = trainData.rdd.map(toArr(_, size))
@@ -79,20 +79,58 @@ class SVM(@transient val sc: SparkContext, val numIterations: Int) extends Seria
       val rddArr = preData.rdd.map(toArr(_, size))
       val parsedData = rddArr.map(r => LabeledPoint(r(size - 1), Vectors.dense(toVec(r, size))))
       val index = model.predict(parsedData.map(_.features))
-      val predictionAndLabel = index.zip(parsedData.map(_.label))
-      val result = sqlContext.createDataFrame(predictionAndLabel).toDF("pre", "real")
-      res(0) = result
+
+      val predictZip = rddArr.zip(index)
+      val rdd = predictZip.map(TpToRow(_))
+      val schemaOutput = getDFOutputSchema(size, withLabel)
+      val predictZipDF = sqlContext.createDataFrame(rdd, schemaOutput)
+
+      //      val predictionAndLabel = index.zip(parsedData.map(_.label))
+      //      val result = sqlContext.createDataFrame(predictionAndLabel).toDF("pre", "real")
+      res(0) = predictZipDF
     } else {
       val col = preData.columns
       val size = col.length
       val rddArr = preData.rdd.map(toArr(_, size))
       val parsedData = rddArr.map(r => Vectors.dense(r))
       val index = model.predict(parsedData)
-      val pre = index.map(r => Tuple1(r))
-      val result = sqlContext.createDataFrame(pre).toDF("pre")
-      res(0) = result
+      val predictZip = rddArr.zip(index)
+      val rdd = predictZip.map(TpToRow(_))
+      val schemaOutput = getDFOutputSchema(size, withLabel)
+      val predictZipDF = sqlContext.createDataFrame(rdd, schemaOutput)
+      //      val pre = index.map(r => Tuple1(r))
+      //      val result = sqlContext.createDataFrame(pre).toDF("pre")
+      res(0) = predictZipDF
     }
     res(0)
+  }
+
+  private def TpToRow(input: (Array[Double], Double)) = {
+    var dataSeq = Seq[Any]()
+    for (i <- 0 to input._1.length - 1) {
+      dataSeq = dataSeq.:+(input._1(i))
+    }
+    dataSeq = dataSeq.:+(input._2)
+    Row.fromSeq(dataSeq)
+  }
+
+  private def getDFOutputSchema(col: Int, withLabel: Boolean): StructType = {
+    if (withLabel) {
+      val fieldArray = new Array[StructField](col + 1)
+      for (i <- 0 to col - 2) {
+        fieldArray(i) = StructField("v" + i.toString(), DoubleType, true);
+      }
+      fieldArray(col - 1) = StructField("label_real", DoubleType, true);
+      fieldArray(col) = StructField("label_pre", DoubleType, true);
+      new StructType(fieldArray)
+    } else {
+      val fieldArray = new Array[StructField](col + 1)
+      for (i <- 0 to col - 1) {
+        fieldArray(i) = StructField("v" + i.toString(), DoubleType, true);
+      }
+      fieldArray(col) = StructField("label", DoubleType, true);
+      new StructType(fieldArray)
+    }
   }
 
 }
@@ -126,8 +164,8 @@ object SVM {
     val withLabel = true
     val numIterations = 1000
     val modelPath = "E://svmMdl//"
-    val svmIns = new SVM(sc, numIterations)
-    val model = svmIns.svmTrain(trainDF, modelPath)
+    val svmIns = new SVM(sc)
+    val model = svmIns.svmTrain(trainDF, modelPath, numIterations)
     val result = svmIns.svmPredict(model, preDFlab, withLabel)
     val result2 = svmIns.svmPredict(model, preDF, false)
     val model1 = svmIns.svmLoad(modelPath)
