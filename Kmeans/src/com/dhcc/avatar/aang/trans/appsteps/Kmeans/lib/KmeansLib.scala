@@ -62,7 +62,7 @@ import org.apache.derby.impl.sql.compile.DeleteNode
  *
  */
 
-class KmeansLib(@transient val sc: SparkContext, val initMode: String, val numClusters: Int, val numIterations: Int) extends Serializable {
+class KmeansLib(@transient val sc: SparkContext) extends Serializable {
 
   val sqlContext = new SQLContext(sc)
 
@@ -101,7 +101,7 @@ class KmeansLib(@transient val sc: SparkContext, val initMode: String, val numCl
     new StructType(fieldArray)
   }
 
-  def kmTrain(trainData: DataFrame, path: String): KMeansModel = {
+  def kmTrain(trainData: DataFrame, path: String, initMode: String, numClusters: Int, numIterations: Int): KMeansModel = {
     val col = trainData.columns
     val size = col.length
     val rddArr = trainData.rdd.map(toArr(_, size))
@@ -183,8 +183,8 @@ object KmeansLib {
     val numClusters = 3
     val numIterations = 20
     val modelPath = "E://KmeansMdl//"
-    val km = new KmeansLib(sc, initMode, numClusters, numIterations)
-    val clusters = km.kmTrain(fileDataFrame, modelPath)
+    val km = new KmeansLib(sc)
+    val clusters = km.kmTrain(fileDataFrame, modelPath, initMode, numClusters, numIterations)
     val clustersLd = km.kmLoad(modelPath)
     val result = km.kmPredict(clusters, fileDataFrame)
     val resultLd = km.kmPredict(clusters, fileDataFrame)
