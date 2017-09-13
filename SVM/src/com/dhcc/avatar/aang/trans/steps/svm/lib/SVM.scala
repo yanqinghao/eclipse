@@ -21,6 +21,96 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.DataFrame
 import org.dmg.pmml.True
 
+/**
+ * *
+ * support vector machines (SVM) are supervised learning models with associated learning algorithms
+ *  that analyze data used for classification and regression analysis. Given a set of training examples,
+ *   each marked as belonging to one or the other of two categories, an SVM training algorithm builds
+ *   a model that assigns new examples to one category or the other, making it a non-probabilistic binary
+ *   linear classifier.
+ * input:
+ * val trainDF
+ * +---+---+-----+
+ * | c1| c2|label|
+ * +---+---+-----+
+ * |5.1|3.5|  0.0|
+ * |4.9|3.0|  0.0|
+ * |4.7|3.2|  0.0|
+ * |4.6|3.1|  0.0|
+ * |5.0|3.6|  0.0|
+ * |5.4|3.9|  0.0|
+ * |4.6|3.4|  0.0|
+ * |5.0|3.4|  0.0|
+ * |4.4|2.9|  0.0|
+ * |4.9|3.1|  0.0|
+ * |5.4|3.7|  0.0|
+ * |4.8|3.4|  0.0|
+ * |4.8|3.0|  0.0|
+ * |4.3|3.0|  0.0|
+ * |5.8|4.0|  0.0|
+ * |5.7|4.4|  0.0|
+ * |5.4|3.9|  0.0|
+ * |5.1|3.5|  0.0|
+ * |5.7|3.8|  0.0|
+ * |5.1|3.8|  0.0|
+ * +---+---+-----+
+ * val numIterations = 1000
+ * val modelPath = "E:\\svmMdl\\"
+ * val preDF
+ * +---+---+-----+
+ * | c1| c2|label|
+ * +---+---+-----+
+ * |5.0|3.5|  0.0|
+ * |4.5|2.3|  0.0|
+ * |4.4|3.2|  0.0|
+ * |5.0|3.5|  0.0|
+ * |5.1|3.8|  0.0|
+ * |4.8|3.0|  0.0|
+ * |5.1|3.8|  0.0|
+ * |4.6|3.2|  0.0|
+ * |5.3|3.7|  0.0|
+ * |5.0|3.3|  0.0|
+ * |5.5|2.6|  1.0|
+ * |6.1|3.0|  1.0|
+ * |5.8|2.6|  1.0|
+ * |5.0|2.3|  1.0|
+ * |5.6|2.7|  1.0|
+ * |5.7|3.0|  1.0|
+ * |5.7|2.9|  1.0|
+ * |6.2|2.9|  1.0|
+ * |5.1|2.5|  1.0|
+ * |5.7|2.8|  1.0|
+ * +---+---+-----+
+ * result:
+ * +---+---+----------+---------+
+ * | v0| v1|label_real|label_pre|
+ * +---+---+----------+---------+
+ * |5.0|3.5|       0.0|      0.0|
+ * |4.5|2.3|       0.0|      1.0|
+ * |4.4|3.2|       0.0|      0.0|
+ * |5.0|3.5|       0.0|      0.0|
+ * |5.1|3.8|       0.0|      0.0|
+ * |4.8|3.0|       0.0|      0.0|
+ * |5.1|3.8|       0.0|      0.0|
+ * |4.6|3.2|       0.0|      0.0|
+ * |5.3|3.7|       0.0|      0.0|
+ * |5.0|3.3|       0.0|      0.0|
+ * |5.5|2.6|       1.0|      1.0|
+ * |6.1|3.0|       1.0|      1.0|
+ * |5.8|2.6|       1.0|      1.0|
+ * |5.0|2.3|       1.0|      1.0|
+ * |5.6|2.7|       1.0|      1.0|
+ * |5.7|3.0|       1.0|      1.0|
+ * |5.7|2.9|       1.0|      1.0|
+ * |6.2|2.9|       1.0|      1.0|
+ * |5.1|2.5|       1.0|      1.0|
+ * |5.7|2.8|       1.0|      1.0|
+ * +---+---+----------+---------+
+ *
+ *
+ *
+ */
+
 class SVM(@transient val sc: SparkContext) extends Serializable {
 
   val sqlContext = new SQLContext(sc)
@@ -148,13 +238,13 @@ object SVM {
     val schemaString = "c1 c2 label"
     val schema = StructType(schemaString.split(" ").map(a => StructField(a, DoubleType, true)))
     val trainDF = sqlContext.createDataFrame(rddRow, schema)
-
+    trainDF.show()
     val preDatalab = sc.textFile(prepathlab)
     val rddRow1 = preDatalab.map(_.split(",")).map(f => Row(f(0).toDouble, f(1).toDouble, f(2).toDouble))
     val schemaString1 = "c1 c2 label"
     val schema1 = StructType(schemaString1.split(" ").map(a => StructField(a, DoubleType, true)))
     val preDFlab = sqlContext.createDataFrame(rddRow1, schema1)
-
+    preDFlab.show()
     val preData = sc.textFile(prepath)
     val rddRow2 = preData.map(_.split(",")).map(f => Row(f(0).toDouble, f(1).toDouble))
     val schemaString2 = "c1 c2"
@@ -163,7 +253,7 @@ object SVM {
 
     val withLabel = true
     val numIterations = 1000
-    val modelPath = "E://svmMdl//"
+    val modelPath = "E:\\svmMdl\\"
     val svmIns = new SVM(sc)
     val model = svmIns.svmTrain(trainDF, modelPath, numIterations)
     val result = svmIns.svmPredict(model, preDFlab, withLabel)
